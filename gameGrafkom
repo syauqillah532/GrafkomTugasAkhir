@@ -1,0 +1,621 @@
+from OpenGL.GL import *
+from OpenGL.GLU import *
+from OpenGL.GLUT import *
+import json
+import random as rd
+import os
+
+lirikan_mata = 0
+pos_x_pemain = 0
+pos_y_pemain = -255
+
+pos_x_waterMelon = rd.randrange(-500,500)
+pos_y_waterMelon = 600
+
+pos_x_banana = 0
+pos_y_banana = 12
+
+pos_x_axe = rd.randrange(-500,500)
+pos_y_axe = 600
+
+darah = 0  #-> setting 0 = 100%, setting = 0%
+gerak = 10 #-> gerak pemain
+
+gerak_waterMelon = 10
+gerak_axe = 10
+gerak_banana = 0.2
+
+mangap = False
+malam  = True
+jam    = 1
+poin   = 0
+
+gameOver = False
+def tulis_skor_baru(value_best_skor):
+    penampung = [{'skor':str(value_best_skor)}]
+    with open('bestScore.json','w') as berkas:
+        json.dump(penampung, berkas, indent = 4)
+def cek_skor():
+    penampung = []  #[{}]
+    try:
+        with open ('bestScore.json','r') as berkas:
+                data = json.load(berkas)
+                for i in data:
+                    penampung.append(i)
+
+    except:
+        penampung = [{'skor':'0'}]
+        with open('bestScore.json','w') as berkas:
+            json.dump(penampung, berkas, indent = 4)
+
+    skor = int(penampung[0]['skor'])
+    return skor
+def init():
+    glClearColor(0.0, 0.0, 0.0, 1.0)
+    gluOrtho2D(-500.0, 500.0, -500.0, 500.0)
+def random_spawn():
+    angka = rd.randrange(-500, 500) 
+    # angka = rd.randrange(angka-rd.randrange(-500, 500) , angka+rd.randrange(-500, 500) ) 
+    return angka
+def bg():
+    global malam, jam
+
+    #PENGATURAN WAKTU
+    jam += 0.01 # -> semakin tinggi angka semakin cepat perubahan waktunya
+    if jam <= 0 or jam > 24:
+        jam = 0
+    elif jam >= 12 and jam <= 24:
+        malam = False
+    elif jam > 0 and jam<12:
+        malam = True
+        
+    #TOGGLE LANGIT
+    if malam ==  True:
+        rgb = [0,0,0] #hitam
+    else:
+        rgb = [0.749,1,1] #putih
+
+    #SKY
+    glPushMatrix()
+    glBegin(GL_POLYGON)
+    glColor3f(float(rgb[0]),float(rgb[1]),float(rgb[2]))
+    glVertex2f(-520,-500) #-500
+    glVertex2f(520,-500)
+    glVertex2f(520,500)  #500
+    glColor3f(float(rgb[0]+0.1),float(rgb[1]),float(rgb[2]))
+    glVertex2f(-520,500)
+    glEnd()
+
+    glPushMatrix()
+    glPointSize(4) # -> semakin tinggi angka semakin besar ukuran bintang
+    glRotated(180,0,0,0)
+    glColor3f(1.0, 1.0, 1.0) #RGB
+    glBegin(GL_POINTS)
+    for i in range(2): # -> semakin tinggi angka semakin banyak bintang
+        x = rd.randrange(-1000,1000)
+        y = rd.randrange(-1000,1000)
+        glVertex2f(x,y)
+
+    glEnd()
+    glPopMatrix()
+
+
+    #GRASS
+    glColor3f(0.043,0.62,0.063)
+    glBegin(GL_QUADS)
+    glVertex2f(-520,-300) #-500
+    glVertex2f(-520,-350)
+    glVertex2f(520,-350)  #500
+    glVertex2f(520,-300)
+    glEnd()
+
+    #DIRT
+    glColor3f(0.302,0.224,0.051)
+    glBegin(GL_QUADS)
+    glVertex2f(-520,-350)
+    glVertex2f(520,-350)  #500
+    glVertex2f(520,-500)  #500
+    glColor3f(0.102,0.071,0.008)
+    glVertex2f(-520,-500)
+    glEnd()
+    glPopMatrix()
+
+def uiBarNgumpulinMakanan():
+    global poin
+    value = str(poin) #0
+
+    value_best_skor = str(cek_skor()) #ngecek di .json
+
+    if int(value) >= int(value_best_skor):
+        value_best_skor = str(value)
+        tulis_skor_baru(value_best_skor)
+
+    #PANEL SCORE
+    glPushMatrix()
+    glColor3f(0.812,0.459,0.922)
+    glBegin(GL_QUADS)
+    glVertex2f(320,390)
+    glVertex2f(440,390)
+    glVertex2f(440,440)
+    glVertex2f(320,440)
+    glEnd()
+
+    #PANEL BEST SCORE
+    glBegin(GL_QUADS)
+    glColor3f(0.565,0.475,0.969)
+    glVertex2f(320,390-100)
+    glVertex2f(440,390-100)
+    glVertex2f(440,440-100)
+    glVertex2f(320,440-100)
+    glEnd()
+
+    #FONT SCORE
+    glColor3f( 1, 1, 1 )   #-> kalo mau diubah warna nya bisa
+    glRasterPos(375,400 )
+    for c in value:
+        glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_24, ord(c) )
+    
+    
+    #FONT BEST SCORE
+    glColor3f( 1, 1, 1 )  #-> kalo mau diubah warna nya bisa
+    glRasterPos(330,300 )
+    for c in "BEST":
+        glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_10, ord(c) )
+
+    glColor3f( 1, 1, 1 )  #-> kalo mau diubah warna nya bisa
+    glRasterPos(375,300 ) 
+    for c in value_best_skor:
+        glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_24, ord(c) )
+    glPopMatrix()
+
+   
+def player():
+    os.system('cls')
+    global gameOver,poin,darah,mangap,gerak, lirikan_mata, pos_x_pemain, pos_y_pemain, pos_x_waterMelon, pos_y_waterMelon,pos_x_banana, pos_y_banana,pos_x_axe, pos_y_axe
+    
+    print("pou:" ,pos_x_pemain, pos_y_pemain)
+    print("semangka:" ,pos_x_waterMelon, pos_y_waterMelon)
+  
+    #COLLISION DENGAN LAYAR
+    if pos_y_pemain <= -290:
+        pos_y_pemain = -290
+
+    if pos_x_pemain <= -450:
+        pos_x_pemain = -450 
+    if pos_x_pemain >= 450:
+        pos_x_pemain = 450 
+
+    #TOGGLE MINGKEM/MANGAP
+    if pos_y_waterMelon < 200:
+        mangap = True
+    else:
+        mangap = False
+    
+    # pos_x_benda1 == pos_x_benda_2 and pos_y_benda1 == pos_y_benda1:
+
+    #COLLISION DENGAN WATERMELON
+    toleransi = 50
+    # pos_x_waterMelon-50,pos_x_waterMelon-49,pos_x_waterMelon-48,pos_x_waterMelon-47,pos_x_waterMelon-46,....pos_x_waterMelon,pos_x_waterMelon+1,pos_x_waterMelon+2,...pos_x_waterMelon+50,
+    if pos_x_pemain in range( pos_x_waterMelon-toleransi, pos_x_waterMelon+toleransi) and pos_y_pemain == pos_y_waterMelon:
+        print("nyam nyam") #ini ga guna seh
+        pos_y_waterMelon = 600 
+        mangap = True
+        darah += 1        #-> semakin tinggi angka, semakin cepat nambah darahnya
+        poin  += 1
+        pos_y_pemain += 5
+    #COLLISION DENGAN AXE
+    toleransi = 50
+    if pos_x_pemain in range(pos_x_axe-toleransi,pos_x_axe+toleransi) and pos_y_pemain in range(pos_y_axe-toleransi+50,pos_y_axe+toleransi+60):
+        print("sakit")   #ini ga guna seh
+        pos_y_axe = 600 
+        darah -= 1      #-> semakin tinggi angka, semakin sakit damage nya
+
+    #COLLISION DENGAN BANANA 
+    if pos_x_pemain in range(int(pos_x_banana*25)-40, int(pos_x_banana*25)+40)  and  pos_y_pemain >= pos_y_banana*100+265: #jangan diubah, bisa setress Anda (ngabisin waktu 8 jam sendiri bjir:v)
+        print("pisang") #ini ga guna seh
+        pos_y_banana = 12
+        mangap = True
+        darah += 1        #-> semakin tinggi angka, semakin cepat nambah darahnya
+        poin  += 1
+
+        
+
+
+    #CEK DARAH HABIS/MAX
+    if darah >= 0:
+        darah = 0
+
+    elif darah <= -10:
+        darah  = -10
+        poin   = 0       #-> kalo darahnya habis poin direset ke 0
+        darah  = 0       #-> setting 0 = 100% di set ke awal, setting -10 = 0%
+        gameOver = True
+
+    glPushMatrix()
+    glTranslated(-100,-500,0)
+    glTranslated(pos_x_pemain + 20 + gerak, pos_y_pemain +410,0)
+    glScaled(6,10,0)
+
+    
+    #UI BAR DARAH PLAYER
+    glBegin(GL_QUADS)
+    glColor3f(1,0,0)
+    glVertex2f(6,15)
+    glVertex2f(16+darah,15)
+    glVertex2f(16+darah,16)
+    glVertex2f(6,16)
+    glEnd()
+    glBegin(GL_LINE_LOOP)
+    glVertex2f(6,15)
+    glVertex2f(16,15)
+    glVertex2f(16,16)
+    glVertex2f(6,16)
+    glEnd()
+
+    #BODY
+    glBegin(GL_POLYGON)
+    glColor3f(0.98,0.624,0.047)
+    glVertex2f(3.3981399498378,3.5245328097382)
+    glVertex2f(4,6)
+    glVertex2f(4.9364505199224,8.3216328769759)
+    glVertex2f(6.3407025043216,10.2895847117314)
+    glVertex2f(7.9641867344037,11.4652112231701)
+    glVertex2f(9.8260354389698,12.7775890783816)
+    glVertex2f(11.4350840538895,13.1446776680826)
+    glVertex2f(13.2072829477453,12.8325687126706)
+    glVertex2f(14.9941210621389,11.5955269411674)
+    glVertex2f(16,10)
+    glColor3f(1.,0.714,0.251)
+    glVertex2f(16.7259795422434,8.1043201638138)
+    glVertex2f(17.1933064337002,6.2625024151312)
+    glVertex2f(17.6606333251569,4.0083374092809)
+    glVertex2f(17.1933064337002,2.8262752720667)
+    glVertex2f(14.7192228906937,1.8916214891531) #o
+    glVertex2f(9.9085048904033,1.5067640491299)
+    glVertex2f(6.0324406730265,1.726682586286)
+    glVertex2f(3.9981942043323,2.3039687463209)
+    glVertex2f(3.3981399498378,3.5245328097382)
+    glEnd()
+    
+
+    # LEFT EYE
+    glColor3f(1.0, 1.0, 1.0)
+    glBegin(GL_POLYGON)
+    glVertex2f(7.5225633730078,7.6980616558496)
+    glVertex2f(8.1884179483726,7.4942501645744)
+    glVertex2f(8.7960702583744,7.6563073317392)
+    glVertex2f(9.4353133637303,8.1705324237514)
+    glVertex2f(9.4400919679078,8.8934614756819)
+    glVertex2f(8.9388354620149,9.2454075330109)
+    glVertex2f(8.1069629628736,9.2667375970915)
+    glVertex2f(7.7234738951884,9.0370190683219)
+    glVertex2f(7.4064665861992,8.7622794005313)
+    glVertex2f(7.2796636626035,8.2128000649499)
+    glVertex2f(7.5225633730078,7.6980616558496)
+    glEnd()
+
+
+
+    # RIGHT EYE
+    glTranslated(5,0,0)
+    # glColor3f(.0, 1.0, 1.0)
+    glBegin(GL_POLYGON)
+    glVertex2f(7.5225633730078,7.6980616558496)
+    glVertex2f(8.1884179483726,7.4942501645744)
+    glVertex2f(8.7960702583744,7.6563073317392)
+    glVertex2f(9.4353133637303,8.1705324237514)
+    glVertex2f(9.4400919679078,8.8934614756819)
+
+    glVertex2f(8.9388354620149,9.2454075330109)
+    glVertex2f(8.1069629628736,9.2667375970915)
+    glVertex2f(7.7234738951884,9.0370190683219)
+    glVertex2f(7.4064665861992,8.7622794005313)
+    glVertex2f(7.2796636626035,8.2128000649499)
+    glVertex2f(7.5225633730078,7.6980616558496)
+ 
+    glEnd()
+
+    
+    #PUPIL LEFT EYE
+    if lirikan_mata >= 0.6:
+        lirikan_mata = 0.6
+    if lirikan_mata <= -0.6:
+        lirikan_mata = -0.6
+
+    glTranslated(-5,0,0)
+    glTranslated(lirikan_mata,0,0)
+    glColor3f(0, 0, 0)
+    glBegin(GL_POLYGON)
+    glVertex2f(8.1078933170014,8.1838154360301)
+    glVertex2f(8.2849064181859,8.115733474036)
+    glVertex2f(8.5441680458605,8.1981733675909)
+    glVertex2f(8.6501388260352,8.4101149279404)
+    glVertex2f(8.6400463707805,8.6321489435445)
+    glVertex2f(8.5027686965668,8.7488957205806)
+    glVertex2f(8.3189473991829,8.7965530939764)
+    glVertex2f(8.1455160632985,8.755781520415)
+    glVertex2f(8.0534277474062,8.6876219547859)
+    glVertex2f(8,8.5)
+    glVertex2f(8.0193867664091,8.3267875562175)
+    glVertex2f(8.1078933170014,8.1838154360301)
+    glEnd()
+
+    #PUPIL RIGHT EYE
+    glTranslated(5,0,0)
+    # glTranslated(lirikan_mata,0,0)
+    glBegin(GL_POLYGON)
+    glVertex2f(8.1078933170014,8.1838154360301)
+    glVertex2f(8.2849064181859,8.115733474036)
+    glVertex2f(8.5441680458605,8.1981733675909)
+    glVertex2f(8.6501388260352,8.4101149279404)
+    glVertex2f(8.6400463707805,8.6321489435445)
+    glVertex2f(8.5027686965668,8.7488957205806)
+    glVertex2f(8.3189473991829,8.7965530939764)
+    glVertex2f(8.1455160632985,8.755781520415)
+    glVertex2f(8.0534277474062,8.6876219547859)
+    glVertex2f(8,8.5)
+    glVertex2f(8.0193867664091,8.3267875562175)
+    glVertex2f(8.1078933170014,8.1838154360301)
+    glEnd()
+
+
+    #MOUTH
+    glTranslated(-3.5,1.5,0)
+    if mangap == False:  #mingkem -> warna mulut sama seperti body
+        glColor3f(0.98,0.7,0.047)
+    else:               #mangap  
+        glColor3f(0.231,0.184,0.196)
+    glBegin(GL_POLYGON)
+    glVertex2f(8,4)
+    glVertex2f(8,2)
+    glVertex2f(11,2)
+    glVertex2f(11,4)
+    glEnd()
+
+    glBegin(GL_POLYGON)
+    if mangap == False:
+        glColor3f(0.98,0.7,0.047) #mingkem
+    else:
+        glColor3f(1.,0.412,0.549)
+    
+    glVertex2f(8,2.8)
+    glVertex2f(8.5017158062276,2.9916613853562)
+    glVertex2f(8.8661082575764,3.0705504727617)
+    glVertex2f(9.4634113479317,3.1268998209084)
+    glVertex2f(10.1245770328533,3.0930902120203)
+    glVertex2f(11, 2.875206065853)
+    glVertex2f(11, 2)
+    glVertex2f(8, 2)
+    glVertex2f(8,2.8)
+    glEnd()
+
+
+
+    glPopMatrix()
+def watermelon():
+    global gerak_waterMelon, pos_x_waterMelon, pos_y_waterMelon, pos_x_pemain, pos_y_pemain
+    glPushMatrix()
+    glColor3f(0.247,0.82,0.4)
+    # print(pos_x_waterMelon, pos_y_waterMelon)
+    pos_y_waterMelon -= gerak_waterMelon
+    glTranslated(pos_x_waterMelon - 180 , pos_y_waterMelon - 380,0)
+
+    #jika ngelewatin batas bawah layar
+    if pos_y_waterMelon < -800:
+        pos_x_waterMelon = random_spawn()
+        pos_y_waterMelon = 600
+
+    glScaled(10,20,0)
+    #bottom part
+    glBegin(GL_POLYGON)
+    glVertex2f(16.4530692630431, 18.0369831774609)
+    glVertex2f(16.7108748829114,17.6867040293441)
+    glVertex2f(17.2887372011366,17.4211997209703)
+    glVertex2f(17.8626871314841,17.4181965414891)
+    glVertex2f(18.5,17.5)
+    glVertex2f(18.9247005563846,17.6861497375461)
+    glVertex2f(18.9325212279801,17.7007601397874)
+    glVertex2f(19.3198910223394,17.8813643050659)
+    glVertex2f(19.6978373695187, 18.3021626304813)
+    glVertex2f(20,18)
+    glVertex2f(19.6777646503448,17.5112717228815)
+    glVertex2f(19.379131120345,17.2234975939726)
+    glVertex2f(19,17)
+    glVertex2f(18.4698164168183,16.8230232988715)
+    glVertex2f(17.9199044067121,16.7680320978609)
+    glVertex2f(17.3150011955953,16.8046928985346)
+    glVertex2f(16.4589539535712,17.266619719461)
+    glVertex2f(16.1864671996199,17.7284597446995)
+    glVertex2f(16.4530692630431, 18.0369831774609)
+    glEnd()
+
+    #Top Part
+    glColor3f(0.831,0.192,0.329)
+    glBegin(GL_POLYGON)
+    glVertex2f(16.4530692630431, 18.0369831774609)
+    glVertex2f(16.7108748829114,17.6867040293441)
+    glVertex2f(17.2887372011366,17.4211997209703)
+    glVertex2f(17.8626871314841,17.4181965414891)
+    glVertex2f(18.5,17.5)
+    glVertex2f(18.9247005563846,17.6861497375461)
+    glVertex2f(18.9325212279801,17.7007601397874)
+    glVertex2f(19.3198910223394,17.8813643050659)
+    glVertex2f(19.6978373695187, 18.3021626304813)
+    glVertex2f(18,20)
+    glVertex2f(18.9247005563846,17.6861497375461)
+    glEnd()
+
+    #Seeds
+    glPointSize(0.5)
+    glColor3f(0.059,0.043,0.047)
+    glBegin(GL_POINTS)
+    glVertex2f(18.0860704223765,19.1517592762391)
+    glVertex2f(17.6812576571537,18.9392839486107)
+    glVertex2f(17.2887372011366,17.4211997209703)
+    glVertex2f(17.9190929667276,18.4826401542289)
+    
+    
+    glEnd()
+
+    glPopMatrix()
+def axe():
+    global muter,gerak_axe, pos_x_axe, pos_y_axe, pos_x_pemain, pos_y_pemain
+    glPushMatrix()
+    # print(pos_x_axe, pos_y_axe)
+    glColor3f(0.612,0.714,0.729)
+    pos_y_axe -= gerak_axe
+    glTranslated(pos_x_axe - 40 , pos_y_axe - 50,0)
+    if pos_y_axe < -800 or pos_y_axe == 600:
+        pos_x_axe = random_spawn()
+        pos_y_axe = 600
+    
+    glColor3f(0.612,0.608,0.604)
+    glScaled(0.75/2,0.75,0)
+    glBegin(GL_POLYGON)
+    glVertex2f(21.7301941050183,153.9552336503809)
+    glVertex2f(24.781391155957,137.0041389229437)
+    glVertex2f(38.5117778851811,118.1884237754884)
+    glVertex2f(52.0726536671308,107.1702122026542)
+    glVertex2f(67.8371717636474,99.8812414698562)
+    glVertex2f(80,130)
+    glVertex2f(93.9418576439006,142.4284892357236)
+    glVertex2f(71.0488115524906,174.1739975132217)
+    glVertex2f(56.1500459294229,162.8757158777198)
+    glVertex2f(35,155)
+    glVertex2f(21.7301941050183,153.9552336503809)
+    glEnd()
+
+    glColor3f(0.349,0.224,0.)
+    glBegin(GL_POLYGON)
+    glVertex2f(93.9418576439006,142.4284892357236)
+    glVertex2f(167.5096087609778,57.1644827567144)
+    glVertex2f(183.4250899667113,37.6618845455106)
+    glVertex2f(196.2594374372614,54.9573540308171)
+    glVertex2f(107.6069345733235,154.5722631628766)
+    glVertex2f(111.6539745557308,155.9179584430829)
+    glVertex2f(93.2988541330764,184.4432479350306)
+    glVertex2f(83.9304151517771,193.4513623401261)
+    glVertex2f(67.6257280785543,182.6416250540115)
+    glVertex2f(71.0488115524906,174.1739975132217)
+    glVertex2f(93.9418576439006,142.4284892357236)
+    
+    
+    glEnd()
+    glPopMatrix()
+
+
+
+def banana():
+    global gerak_banana,pos_x_banana, pos_y_banana
+    glPushMatrix()
+    # print('banana:',pos_x_banana*25, pos_y_banana*100+25)
+    pos_y_banana -= gerak_banana
+    if pos_y_banana < -20:
+        pos_x_banana = random_spawn()/100
+        pos_y_banana = 12
+
+    glColor3f(0.91,0.89,0.337)
+    glScaled(25,50,0)
+    glTranslated(pos_x_banana, pos_y_banana-1,0)
+    glBegin(GL_POLYGON)
+    glVertex2f(-1,0)
+    glVertex2f(-0.6041211350688,0.2984136880782) #C
+    glVertex2f(-0.6041211350688,0.2984136880782) #D
+    glColor3f(1.,0.973,0.188)
+    glVertex2f(-0.2175080287687,0.5625993107165) #E
+    glVertex2f(0.3523362307566,0.2366072381547)#M
+    glVertex2f(0.039756728142,-0.0440763968462)#N
+    glVertex2f(-0.3748895508365,-0.2545891230968)#O
+    glVertex2f(-0.8022941768605,-0.273726643665)#p
+    glVertex2f(-1,-0.2)#Q
+    glVertex2f(-1.0765986383386,-0.1174368923577)#R
+    glEnd()
+
+    glBegin(GL_POLYGON)
+    glVertex2f(-0.2175080287687,0.5625993107165) #E
+    glVertex2f(0.0531211456413,1.1038576595366)  #F
+    glVertex2f(0.1667584764434,1.2684133934296)  #G
+    glVertex2f(0.3966765191455,1.357675692361)#J
+    glVertex2f(0.5129879995713,1.1358724041072)#K
+    glVertex2f(0.5102830814218,0.6273477920132)#L
+    glVertex2f(0.3523362307566,0.2366072381547)#M
+    glEnd()
+
+    glColor3f(0.278,0.275,0.102)
+    glBegin(GL_QUADS)
+    glVertex2f(0.1667584764434,1.2684133934296)  #G
+    glVertex2f(0.1748732308917,1.655216688799)#H
+    glVertex2f(0.3831519283983,1.6795609521439)#I
+    glVertex2f(0.3966765191455,1.357675692361)#J
+    
+    glEnd()
+
+
+    glPopMatrix()
+
+
+def textGameOver():
+    #FONT SCORE
+    glColor3f( 1, 0, 0 )   #-> kalo mau diubah warna nya bisa
+    glRasterPos(-50,0)
+    for c in "GAME OVER":
+        glutBitmapCharacter( GLUT_BITMAP_TIMES_ROMAN_24, ord(c) )
+def display():
+    glClear(GL_COLOR_BUFFER_BIT)
+    # glColor3f(0,0,0)         --> kalo di aktifkan muncul garis cross
+    # glBegin(GL_LINES)
+    # glVertex2f(-500.0, 0.0)
+    # glVertex2f(500.0, 0.0)
+    # glVertex2f(0.0, 500.0)
+    # glVertex2f(0.0, -500.0)
+    # glEnd()
+
+    if gameOver == False:
+        bg()
+        uiBarNgumpulinMakanan()
+        player()
+        watermelon()
+        banana()
+        axe()
+    else:
+        bg()
+        textGameOver()
+    
+    glFlush()
+
+
+def input_keyboard(key,x,y):
+    global pos_x_pemain, pos_y_pemain, gerak, lirikan_mata
+ 
+    if key == GLUT_KEY_UP:
+        pass
+   
+    elif key == GLUT_KEY_DOWN:
+        pass
+      
+    elif key == GLUT_KEY_RIGHT:
+        pos_x_pemain += gerak
+        lirikan_mata -= 0.02
+
+    elif key == GLUT_KEY_LEFT:
+        pos_x_pemain -= gerak
+        lirikan_mata += 0.02
+
+
+def update(value):
+    glutPostRedisplay()
+    glutTimerFunc(25,update,0)
+
+def main():
+    glutInit(sys.argv)
+    glutInitDisplayMode(GLUT_SINGLE|GLUT_RGB)
+    glutInitWindowSize(1000,600)
+    glutInitWindowPosition(0,0)
+    glutCreateWindow("POU JADI-JADIAN")
+    glutDisplayFunc(display)
+    glutSpecialFunc(input_keyboard)
+    glutTimerFunc(50, update, 0)
+    init()
+    glutMainLoop()
+
+main()
